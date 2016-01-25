@@ -49,7 +49,7 @@ void fill_block(__m128i *state, const uint8_t *ref_block, uint8_t *next_block) {
 }
 
 void fill_block_lhs_zero(__m128i *state, __m128i *next_block) {
-    // precondition: state and next_block are identical
+    /* precondition: state and next_block are identical */
     for (i = 0; i < 8; ++i) {
         BLAKE2_ROUND(state[8 * i + 0], state[8 * i + 1], state[8 * i + 2],
                      state[8 * i + 3], state[8 * i + 4], state[8 * i + 5],
@@ -84,14 +84,16 @@ void generate_addresses(const argon2_instance_t *instance,
         input_block.v[4] = instance->passes;
         input_block.v[5] = instance->type;
 
-        memcpy(address_block, input_block, ARGON2_BLOCK_SIZE);
+        memcpy(&address_block, &input_block, ARGON2_BLOCK_SIZE);
 
         for (i = 0; i < instance->segment_length; ++i) {
             if (i % ARGON2_ADDRESSES_IN_BLOCK == 0) {
                 input_block.v[6]++;
                 address_block.v[7]++;
-                fill_block_lhs_zero(&input_block, &address_block);
-                fill_block_lhs_zero(&input_block, &address_block);
+                fill_block_lhs_zero((__m128i*)(&input_block->v),
+                                    (__m128i*)(&address_block-v));
+                fill_block_lhs_zero((__m128i*)(&input_block->v),
+                                    (__m128i*)(&address_block-v));
             }
 
             pseudo_rands[i] = address_block.v[i % ARGON2_ADDRESSES_IN_BLOCK];
