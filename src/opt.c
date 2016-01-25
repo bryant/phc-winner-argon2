@@ -48,13 +48,32 @@ void fill_block(__m128i *state, const uint8_t *ref_block, uint8_t *next_block) {
     }
 }
 
+void fill_block_lhs_zero(__m128i *state, __m128i *next_block) {
+    // precondition: state and next_block are identical
+    for (i = 0; i < 8; ++i) {
+        BLAKE2_ROUND(state[8 * i + 0], state[8 * i + 1], state[8 * i + 2],
+                     state[8 * i + 3], state[8 * i + 4], state[8 * i + 5],
+                     state[8 * i + 6], state[8 * i + 7]);
+    }
+
+    for (i = 0; i < 8; ++i) {
+        BLAKE2_ROUND(state[8 * 0 + i], state[8 * 1 + i], state[8 * 2 + i],
+                     state[8 * 3 + i], state[8 * 4 + i], state[8 * 5 + i],
+                     state[8 * 6 + i], state[8 * 7 + i]);
+    }
+
+    for (i = 0; i < ARGON2_OWORDS_IN_BLOCK; i++) {
+        state[i] = _mm_xor_si128(state[i], next_block[i]);
+        _mm_storeu_si128(&next_block[i], state[i]);
+    }
+}
+
 void generate_addresses(const argon2_instance_t *instance,
                         const argon2_position_t *position,
                         uint64_t *pseudo_rands) {
     block address_block, input_block;
     uint32_t i;
 
-    init_block_value(&address_block, 0);
     init_block_value(&input_block, 0);
 
     if (instance != NULL && position != NULL) {
@@ -65,17 +84,14 @@ void generate_addresses(const argon2_instance_t *instance,
         input_block.v[4] = instance->passes;
         input_block.v[5] = instance->type;
 
+        memcpy(address_block, input_block, ARGON2_BLOCK_SIZE);
+
         for (i = 0; i < instance->segment_length; ++i) {
             if (i % ARGON2_ADDRESSES_IN_BLOCK == 0) {
-                __m128i zero_block[ARGON2_OWORDS_IN_BLOCK];
-                __m128i zero2_block[ARGON2_OWORDS_IN_BLOCK];
-                memset(zero_block, 0, sizeof(zero_block));
-                memset(zero2_block, 0, sizeof(zero2_block));
                 input_block.v[6]++;
-                fill_block(zero_block, (uint8_t *)&input_block.v,
-                           (uint8_t *)&address_block.v);
-                fill_block(zero2_block, (uint8_t *)&address_block.v,
-                           (uint8_t *)&address_block.v);
+                address_block.v[7]++;
+                fill_block_lhs_zero(&input_block, &address_block);
+                fill_block_lhs_zero(&input_block, &address_block);
             }
 
             pseudo_rands[i] = address_block.v[i % ARGON2_ADDRESSES_IN_BLOCK];
