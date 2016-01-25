@@ -48,11 +48,12 @@ void fill_block(__m128i *state, const uint8_t *ref_block, uint8_t *next_block) {
     }
 }
 
-void fill_block_lhs_zero(__m128i *state) {
+void fill_block_lhs_zero(__m128i *state, const uint8_t *ref_block) {
     __m128i block_XY[ARGON2_OWORDS_IN_BLOCK];
     uint32_t i;
+
     for (i = 0; i < ARGON2_OWORDS_IN_BLOCK; i++) {
-        block_XY[i] = state[i];
+        block_XY[i] = state[i] = _mm_loadu_si128((__m128i const *)(&ref_block[16 * i]));
     }
 
     for (i = 0; i < 8; ++i) {
@@ -88,15 +89,12 @@ void generate_addresses(const argon2_instance_t *instance,
         input_block.v[4] = instance->passes;
         input_block.v[5] = instance->type;
 
-        memcpy(&address_block, &input_block, ARGON2_BLOCK_SIZE);
-
         for (i = 0; i < instance->segment_length; ++i) {
             if (i % ARGON2_ADDRESSES_IN_BLOCK == 0) {
                 input_block.v[6]++;
-                memcpy(&address_block, &input_block, ARGON2_BLOCK_SIZE);
 
-                fill_block_lhs_zero((__m128i*) &address_block.v);
-                fill_block_lhs_zero((__m128i*) &address_block.v);
+                fill_block_lhs_zero((__m128i*) &address_block.v, (const uint8_t *) &input_block.v);
+                fill_block_lhs_zero((__m128i*) &address_block.v, (const uint8_t *) &address_block.v);
             }
 
             pseudo_rands[i] = address_block.v[i % ARGON2_ADDRESSES_IN_BLOCK];
