@@ -164,12 +164,41 @@ void fill_segment(const argon2_instance_t *instance,
         position.index = i;
         ref_index = index_alpha(instance, &position, pseudo_rand & 0xFFFFFFFF,
                                 ref_lane == position.lane);
+#ifdef PRINTEE
+        printf("index_alpha %x %x %x %x %x %x %x %x = %08x\n",
+                     position.pass, position.lane, position.slice,
+                     instance->lanes, position.index, instance->segment_length,
+                     pseudo_rand & 0xFFFFFFFF, pseudo_rand >> 32, ref_index);
+        printf("%u %u %u\n", curr_offset, prev_offset,
+               instance->lane_length * ref_lane + ref_index);
+#endif
+
 
         /* 2 Creating a new block */
         ref_block =
             instance->memory + instance->lane_length * ref_lane + ref_index;
         curr_block = instance->memory + curr_offset;
+
+#ifdef PRINTEE
+        uint64_t sum, blkidx;
+        for (sum = blkidx = 0; blkidx < ARGON2_QWORDS_IN_BLOCK; ++blkidx) {
+            sum += (instance->memory + prev_offset)->v[blkidx];
+        }
+        printf("rd0 %016lx\n", sum);
+        for (sum = blkidx = 0; blkidx < ARGON2_QWORDS_IN_BLOCK; ++blkidx) {
+            sum += ref_block->v[blkidx];
+        }
+        printf("ref %016lx\n", sum);
+#endif
+
         fill_block(instance->memory + prev_offset, ref_block, curr_block);
+
+#ifdef PRINTEE
+        for (sum = blkidx = 0; blkidx < ARGON2_QWORDS_IN_BLOCK; ++blkidx) {
+            sum += curr_block->v[blkidx];
+        }
+        printf("blksum %016lx\n", sum);
+#endif
     }
 
     free(pseudo_rands);

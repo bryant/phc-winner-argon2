@@ -278,7 +278,7 @@ int fill_memory_blocks(argon2_instance_t *instance) {
             /* 2. Calling threads */
             for (l = 0; l < instance->lanes; ++l) {
                 argon2_position_t position;
-
+#if 0
                 /* 2.1 Join a thread if limit is exceeded */
                 if (l >= instance->threads) {
                     rc = argon2_thread_join(thread[l - instance->threads]);
@@ -286,12 +286,14 @@ int fill_memory_blocks(argon2_instance_t *instance) {
                         return ARGON2_THREAD_FAIL;
                     }
                 }
+#endif
 
                 /* 2.2 Create thread */
                 position.pass = r;
                 position.lane = l;
                 position.slice = (uint8_t)s;
                 position.index = 0;
+#ifndef PRINTEE
                 thr_data[l].instance_ptr =
                     instance; /* preparing the thread input */
                 memcpy(&(thr_data[l].pos), &position,
@@ -304,8 +306,11 @@ int fill_memory_blocks(argon2_instance_t *instance) {
 
                 /* fill_segment(instance, position); */
                 /*Non-thread equivalent of the lines above */
+#else
+                fill_segment(instance, position);
+#endif
             }
-
+#ifndef PRINTEE
             /* 3. Joining remaining threads */
             for (l = instance->lanes - instance->threads; l < instance->lanes;
                  ++l) {
@@ -314,6 +319,7 @@ int fill_memory_blocks(argon2_instance_t *instance) {
                     return ARGON2_THREAD_FAIL;
                 }
             }
+#endif
         }
 
 #ifdef GENKAT
@@ -585,6 +591,48 @@ int initialize(argon2_instance_t *instance, argon2_context *context) {
     /* uint8_t blockhash[ARGON2_PREHASH_SEED_LENGTH]; */
     /* Hashing all inputs */
     initial_hash(blockhash, context, instance->type);
+
+#ifdef PRINTEE
+    unsigned i;
+    printf("%08x lanes\n", context->lanes);
+    printf("%08x hashlen\n", context->outlen);
+    printf("%08x m\n", context->m_cost);
+    printf("%08x t\n", context->t_cost);
+
+    printf("%08x |p|\n", context->pwdlen);
+    for (i = 0; i < context->pwdlen; ++i) {
+        printf("%02x ", context->pwd[i]);
+    }
+    printf("\n");
+
+    printf("%08x |s|\n", context->saltlen);
+    for (i = 0; i < context->saltlen; ++i) {
+        printf("%02x ", context->salt[i]);
+    }
+    printf("\n");
+
+    printf("%08x |k|\n", context->secretlen);
+    for (i = 0; i < context->secretlen; ++i) {
+        printf("%02x ", context->secret[i]);
+    }
+    printf("\n");
+
+    printf("%08x |x|\n", context->adlen);
+    for (i = 0; i < context->adlen; ++i) {
+        printf("%02x ", context->ad[i]);
+    }
+    printf("\n");
+
+    unsigned r, c;
+    printf("h0:\n");
+    for (r = 0; r < 4; ++r) {
+        for (c = 0; c < 16; ++c) {
+            printf("%02x ", blockhash[r*16 + c]);
+        }
+        printf("\n");
+    }
+#endif
+
     /* Zeroing 8 extra bytes */
     secure_wipe_memory(blockhash + ARGON2_PREHASH_DIGEST_LENGTH,
                        ARGON2_PREHASH_SEED_LENGTH -

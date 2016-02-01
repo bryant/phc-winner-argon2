@@ -21,6 +21,10 @@ OBJ = $(SRC:.c=.o)
 
 CFLAGS += -std=c89 -pthread -O3 -Wall -g
 
+ifeq ($(P), TRUE)
+	CFLAGS += -DPRINTEE
+endif
+
 #OPT=TRUE
 ifeq ($(OPT), TRUE)
 	CFLAGS += -march=native
